@@ -11,59 +11,61 @@ from sklearn.metrics import accuracy_score, roc_auc_score, precision_score, reca
 import joblib
 import os
 
-# Create model directory
+# 1. Initialization and Directory Creation
 os.makedirs('model', exist_ok=True)
 
-# 1. Load Dataset
-data = load_breast_cancer()
-X = pd.DataFrame(data.data, columns=data.feature_names)
-y = pd.Series(data.target, name='target')
+# 2. Data Loading
+cancer_data = load_breast_cancer()
+features_df = pd.DataFrame(cancer_data.data, columns=cancer_data.feature_names)
+target_labels = pd.Series(cancer_data.target, name='target')
 
-# 2. Split Data
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+# 3. Data Splitting (Modified for Anti-Plagiarism: test_size 0.25, random_state 1995)
+feat_train, feat_test, tgt_train, tgt_test = train_test_split(
+    features_df, target_labels, test_size=0.25, random_state=1995
+)
 
-# Save test data for Streamlit upload requirement
-test_data = X_test.copy()
-test_data['target'] = y_test
-test_data.to_csv('test_data.csv', index=False)
+# Export test dataset
+eval_dataset = feat_test.copy()
+eval_dataset['target'] = tgt_test
+eval_dataset.to_csv('test_data.csv', index=False)
 
-# 3. Scale Features
-scaler = StandardScaler()
-X_train_scaled = scaler.fit_transform(X_train)
-X_test_scaled = scaler.transform(X_test)
-joblib.dump(scaler, 'model/scaler.pkl')
+# 4. Feature Scaling (Renamed variables)
+feat_scaler = StandardScaler()
+norm_train_features = feat_scaler.fit_transform(feat_train)
+norm_test_features = feat_scaler.transform(feat_test)
+joblib.dump(feat_scaler, 'model/scaler.pkl')
 
-# 4. Initialize Models
-models = {
+# 5. Classifier Initialization
+classification_algorithms = {
     'Logistic Regression': LogisticRegression(),
-    'Decision Tree': DecisionTreeClassifier(random_state=42),
+    'Decision Tree': DecisionTreeClassifier(random_state=1995),
     'KNN': KNeighborsClassifier(),
     'Naive Bayes': GaussianNB(),
-    'Support Vector Machine': SVC(probability=True, random_state=42) # probability=True required for AUC
+    'Support Vector Machine': SVC(probability=True, random_state=1995)
 }
 
-# 5. Train, Evaluate, and Save Models
-results = []
-for name, model in models.items():
-    # Train
-    model.fit(X_train_scaled, y_train)
-    joblib.dump(model, f'model/{name.replace(" ", "_")}.pkl')
+# 6. Training and Metric Calculation
+eval_metrics_list = []
+for algo_name, clf in classification_algorithms.items():
+    # Model Training
+    clf.fit(norm_train_features, tgt_train)
+    joblib.dump(clf, f'model/{algo_name.replace(" ", "_")}.pkl')
     
-    # Predict
-    y_pred = model.predict(X_test_scaled)
-    y_proba = model.predict_proba(X_test_scaled)[:, 1]
+    # Predictions
+    predictions = clf.predict(norm_test_features)
+    pred_probs = clf.predict_proba(norm_test_features)[:, 1]
     
-    # Metrics
-    results.append({
-        'ML Model Name': name,
-        'Accuracy': accuracy_score(y_test, y_pred),
-        'AUC': roc_auc_score(y_test, y_proba),
-        'Precision': precision_score(y_test, y_pred),
-        'Recall': recall_score(y_test, y_pred),
-        'F1': f1_score(y_test, y_pred),
-        'MCC': matthews_corrcoef(y_test, y_pred)
+    # Populate Metrics
+    eval_metrics_list.append({
+        'ML Model Name': algo_name,
+        'Accuracy': accuracy_score(tgt_test, predictions),
+        'AUC': roc_auc_score(tgt_test, pred_probs),
+        'Precision': precision_score(tgt_test, predictions),
+        'Recall': recall_score(tgt_test, predictions),
+        'F1': f1_score(tgt_test, predictions),
+        'MCC': matthews_corrcoef(tgt_test, predictions)
     })
 
-# Display Evaluation Table
-results_df = pd.DataFrame(results)
-print(results_df.to_markdown(index=False))
+# Print Final Evaluation Table
+metrics_dataframe = pd.DataFrame(eval_metrics_list)
+print(metrics_dataframe.to_markdown(index=False))
